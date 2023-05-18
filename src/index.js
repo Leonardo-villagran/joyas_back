@@ -8,7 +8,7 @@ const cors = require('cors');
 const app = express();
 //generar constante que determina el puerto a usar
 const PORT = process.env.PORT || 3001;
-const HOST = req.host;
+const HOST = app.get('host') || 'localhost';
 
 app.use(cors());
 
