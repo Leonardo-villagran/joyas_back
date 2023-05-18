@@ -8,6 +8,7 @@ const cors = require('cors');
 const app = express();
 //generar constante que determina el puerto a usar
 const PORT = process.env.PORT || 3001;
+const HOST = req.host;
 
 app.use(cors());
 
@@ -172,5 +173,5 @@ app.delete('/joyas/:id', async (req, res) => {
 
 // Inicia el servidor
 app.listen(PORT, () => {
-    console.log(`Servidor de Express en el host ${process.env.HOST} escuchando en el puerto ${PORT}`);
+    console.log(`Servidor de Express en el host ${HOST} escuchando en el puerto ${PORT}`);
 });
