@@ -27,7 +27,7 @@ const pool = new Pool({
 const reportMiddleware = (req, res, next) => {
     console.log(`---------------------`);
     console.log(`SOLICITUD DESDE LA WEB`);
-    console.log('Url original:',req.host,(req.originalUrl));
+    console.log('Url original:',req.hostname,(req.originalUrl));
     console.log(`Solicitud recibida: ${req.method} ${req.path}`);
     console.log('req.query: ', JSON.stringify(req.query,null,2));
     console.log(`---------------------`);
