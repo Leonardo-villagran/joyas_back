@@ -8,7 +8,6 @@ const cors = require('cors');
 const app = express();
 //generar constante que determina el puerto a usar
 const PORT = process.env.PORT || 3001;
-const HOST = app.get('host') || 'localhost';
 
 app.use(cors());
 
@@ -28,9 +27,9 @@ const pool = new Pool({
 const reportMiddleware = (req, res, next) => {
     console.log(`---------------------`);
     console.log(`SOLICITUD DESDE LA WEB`);
-    console.log('Url original:',JSON.stringify(req.originalUrl));
+    console.log('Url original:',req.host,(req.originalUrl));
     console.log(`Solicitud recibida: ${req.method} ${req.path}`);
-    console.log('req.query: ', JSON.stringify(req.query));
+    console.log('req.query: ', JSON.stringify(req.query,null,2));
     console.log(`---------------------`);
     next();
 };
@@ -173,5 +172,5 @@ app.delete('/joyas/:id', async (req, res) => {
 
 // Inicia el servidor
 app.listen(PORT, () => {
-    console.log(`Servidor de Express en el host ${HOST} escuchando en el puerto ${PORT}`);
+    console.log(`Servidor de Express escuchando en el puerto ${PORT}`);
 });
