@@ -20,48 +20,63 @@ const pool = new Pool({
     host: process.env.DB_HOST,
     database: process.env.DB_NAME,
     password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT
+    port: process.env.DB_PORT,
+    allowExitOnIdle: true
 });
 
 
 const reportMiddleware = (req, res, next) => {
     console.log(`---------------------`);
     console.log(`SOLICITUD DESDE LA WEB`);
-    console.log('Url original:',req.hostname,(req.originalUrl));
+    console.log('Url original:', req.hostname, (req.originalUrl));
     console.log(`Solicitud recibida: ${req.method} ${req.path}`);
-    console.log('req.query: ', JSON.stringify(req.query,null,2));
+    console.log('req.query: ', JSON.stringify(req.query, null, 2));
     console.log(`---------------------`);
     next();
 };
 
 // Ruta para obtener todos los posts
-app.get('/joyas',  reportMiddleware, async (req, res) => {
+app.get('/joyas', reportMiddleware, async (req, res) => {
     try {
-        const limit = req.query.limits || 10; // Valor por defecto 10
-        const page = req.query.page || 1; // Valor por defecto 1
+        let limit = req.query.limits || 10; // Valor por defecto 10
+
+        // Verificar si el valor es vacío, cero o menor que cero
+        if (isNaN(limit) || limit <= 0) {
+            limit = 0; // Asignar el valor por defecto
+        }
+
+        let page = req.query.page || 1; // Valor por defecto 1
+        // Verificar si el valor es vacío, cero o menor que cero
+        if (isNaN(page) || page <= 0) {
+            page = 1; // Asignar el valor por defecto
+        }
+
+
         let order_by = req.query.order_by || 'id'; // Valor por defecto 'id'
         const allowed_columns = ['id', 'stock', 'categoria', 'metal', 'nombre', 'precio']; // Las columnas permitidas
         const order_by_parts = order_by.split('_'); // Separamos la columna del orden
         let order_column = order_by_parts[0];
         //console.log(` ${order_column}`);
         let order_direction = order_by_parts[1];
-        
+
         if (typeof order_direction === "undefined") {
             order_direction = 'DESC';
-        } 
-        
+        }
+
         if (!allowed_columns.includes(order_column)) { // Si la columna no es permitida, usamos la columna por defecto
             //console.log(`order_direction está indefinida`);
-            let order=1;
-            console.log(`Tipo orden: ${order_direction}`);
+            let order = 1;
+            //console.log(`Tipo orden: ${order_direction}`);
         } else {
             order_by = `${order_column} ${order_direction}`;
-            console.log(`Tipo orden: ${order_direction}`);
+            //console.log(`Tipo orden: ${order_direction}`);
         }
         const offset = (page - 1) * limit;
-        
+
         const client = await pool.connect();
-        const result = await client.query(`SELECT * FROM inventario ORDER BY ${order_by} LIMIT ${limit} OFFSET ${offset}`);
+        let query = `SELECT * FROM inventario ORDER BY ${order_by} LIMIT $1 OFFSET $2`;
+
+        const result = await client.query(query, [limit, offset]);
         const joyas = result.rows;
         res.json(joyas);
         client.release();
@@ -72,45 +87,37 @@ app.get('/joyas',  reportMiddleware, async (req, res) => {
 });
 
 
-app.get('/joyas/filtros',  reportMiddleware, async (req, res) => {
+app.get('/joyas/filtros', reportMiddleware, async (req, res) => {
     try {
         const client = await pool.connect();
-        let query = 'SELECT * FROM inventario';
+        let query = 'SELECT * FROM inventario where 1=1';
+        //Objeto que se utiliza para almacenar los valores ordenados para la consulta parametrizada.
+        let values = [];
         const { precio_max, precio_min, categoria, metal } = req.query;
 
         if (precio_max) {
-            if (query.includes('WHERE')) {
-                query += ` AND precio <= ${precio_max}`;
-            } else {
-                query += ` WHERE precio <= ${precio_max}`;
-            }
+            query += ` AND precio <= $${values.length + 1}`;
+            values.push(precio_max);
         }
 
         if (precio_min) {
-            if (query.includes('WHERE')) {
-                query += ` AND precio >= ${precio_min}`;
-            } else {
-                query += ` WHERE precio >= ${precio_min}`;
-            }
+            query += ` AND precio >= $${values.length + 1}`;
+            values.push(precio_min);
         }
 
         if (categoria) {
-            if (query.includes('WHERE')) {
-                query += ` AND categoria = '${categoria}'`;
-            } else {
-                query += ` WHERE categoria = '${categoria}'`;
-            }
+            query += ` AND categoria = $${values.length + 1}`;
+            values.push(categoria);
         }
 
         if (metal) {
-            if (query.includes('WHERE')) {
-                query += ` AND metal = '${metal}'`;
-            } else {
-                query += ` WHERE metal = '${metal}'`;
-            }
+            query += ` AND metal = $${values.length + 1}`;
+            values.push(metal);
         }
 
-        const result = await client.query(query);
+        console.log(query);
+        console.log(values);
+        const result = await client.query(query, values);
         const joyas = result.rows;
         res.json(joyas);
         client.release();
