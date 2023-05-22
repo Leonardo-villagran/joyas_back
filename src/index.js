@@ -93,26 +93,31 @@ app.get('/joyas/filtros', reportMiddleware, async (req, res) => {
         let query = 'SELECT * FROM inventario where 1=1';
         //Objeto que se utiliza para almacenar los valores ordenados para la consulta parametrizada.
         let values = [];
-        const { precio_max, precio_min, categoria, metal } = req.query;
+        const { precio_max, precio_min, categoria, metal} = req.query;
 
-        if (precio_max) {
+        const precio_maxTrim=precio_max.trim();
+        const precio_minTrim=precio_min.trim();
+        const categoriaLower= categoria.toLowerCase().trim();
+        const metalLower = metal.toLowerCase().trim();
+
+        if (precio_maxTrim) {
             query += ` AND precio <= $${values.length + 1}`;
-            values.push(precio_max);
+            values.push(precio_maxTrim);
         }
 
-        if (precio_min) {
+        if (precio_minTrim) {
             query += ` AND precio >= $${values.length + 1}`;
-            values.push(precio_min);
+            values.push(precio_minTrim);
         }
 
-        if (categoria) {
-            query += ` AND categoria = $${values.length + 1}`;
-            values.push(categoria);
+        if (categoriaLower) {
+            query += ` AND categoria LIKE '%' || $${values.length + 1} || '%'`;
+            values.push(categoriaLower);
         }
 
-        if (metal) {
-            query += ` AND metal = $${values.length + 1}`;
-            values.push(metal);
+        if (metalLower) {
+            query += ` AND metal LIKE '%' || $${values.length + 1} || '%'`;
+            values.push(metalLower);
         }
 
         console.log(query);
