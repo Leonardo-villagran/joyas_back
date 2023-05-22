@@ -95,10 +95,8 @@ app.get('/joyas/filtros', reportMiddleware, async (req, res) => {
         let values = [];
         const { precio_max, precio_min, categoria, metal} = req.query;
 
-        const precio_maxTrim=precio_max.trim();
-        const precio_minTrim=precio_min.trim();
-        const categoriaLower= categoria.toLowerCase().trim();
-        const metalLower = metal.toLowerCase().trim();
+        const precio_maxTrim=precio_max;
+        const precio_minTrim=precio_min;
 
         if (precio_maxTrim) {
             query += ` AND precio <= $${values.length + 1}`;
@@ -110,12 +108,14 @@ app.get('/joyas/filtros', reportMiddleware, async (req, res) => {
             values.push(precio_minTrim);
         }
 
-        if (categoriaLower) {
+        if (categoria) {
+            const categoriaLower= categoria.toLowerCase().trim();
             query += ` AND categoria LIKE '%' || $${values.length + 1} || '%'`;
             values.push(categoriaLower);
         }
 
-        if (metalLower) {
+        if (metal) {
+            const metalLower = metal.toLowerCase().trim();
             query += ` AND metal LIKE '%' || $${values.length + 1} || '%'`;
             values.push(metalLower);
         }
