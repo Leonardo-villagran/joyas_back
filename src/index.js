@@ -27,10 +27,32 @@ const pool = new Pool({
 
 const reportMiddleware = (req, res, next) => {
     console.log(`---------------------`);
-    console.log(`SOLICITUD DESDE LA WEB`);
-    console.log('Url original:', req.hostname, (req.originalUrl));
-    console.log(`Solicitud recibida: ${req.method} ${req.path}`);
+    console.log(`SOLICITUD DESDE LA WEB DESDE CON QUERY`);
+    console.log('Url original:', req.hostname);
+    console.log(`Solicitud recibida: ${req.method}`);
+    console.log(`Ruta: ${req.path}`);
     console.log('req.query: ', JSON.stringify(req.query, null, 2));
+    console.log(`---------------------`);
+    next();
+};
+
+const reportMiddleBody = (req, res, next) => {
+    console.log(`---------------------`);
+    console.log(`SOLICITUD DESDE LA WEB DESDE CON BODY`);
+    console.log('Url original:', req.hostname);
+    console.log(`Solicitud recibida: ${req.method}`);
+    console.log(`Ruta: ${req.path}`);
+    console.log('req.body: ', JSON.stringify(req.body, null, 2));
+    console.log(`---------------------`);
+    next();
+};
+const reportMiddleParams = (req, res, next) => {
+    console.log(`---------------------`);
+    console.log(`SOLICITUD DESDE LA WEB CON PARAMS`);
+    console.log('Url original:', req.hostname);
+    console.log(`Solicitud recibida: ${req.method}`);
+    console.log(`Ruta: ${req.path}`);
+    console.log('req.params: ', JSON.stringify(req.params, null, 2));
     console.log(`---------------------`);
     next();
 };
@@ -73,43 +95,67 @@ app.get('/joyas', reportMiddleware, async (req, res) => {
         }
         const offset = (page - 1) * limit;
 
-        const client = await pool.connect();
+
         let query = `SELECT * FROM inventario ORDER BY ${order_by} LIMIT $1 OFFSET $2`;
 
-        const result = await client.query(query, [limit, offset]);
+        const result = await pool.query(query, [limit, offset]);
         const joyas = result.rows;
         res.json(joyas);
-        client.release();
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: `Error al obtener las joyas ${process.env.DB_USER} ${process.env.DB_HOST} ${process.env.DB_NAME} ${process.env.DB_PORT}` });
     }
 });
 
+//Ruta para obtener una joya
+
+app.get('/joyas/edit/:id', reportMiddleParams, async (req, res) => {
+
+    const id = req.params.id;
+    try {
+
+        const result = await pool.query('SELECT * FROM inventario WHERE id = $1', [id]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ mensaje: 'Joya no encontrada' });
+        }
+
+        const joya = result.rows[0];
+        res.json(joya);
+    } catch (error) {
+        console.error('Error al obtener la joya', error);
+        res.status(500).json({ mensaje: 'Error al obtener la joya' });
+    }
+
+});
 
 app.get('/joyas/filtros', reportMiddleware, async (req, res) => {
     try {
-        const client = await pool.connect();
+
         let query = 'SELECT * FROM inventario where 1=1';
         //Objeto que se utiliza para almacenar los valores ordenados para la consulta parametrizada.
         let values = [];
-        const { precio_max, precio_min, categoria, metal} = req.query;
+        const { precio_max, precio_min, categoria, metal } = req.query;
 
-        const precio_maxTrim=precio_max;
-        const precio_minTrim=precio_min;
+        /* const precioMinEntero = parseInt(precio_min, 10);
+         const precioMaxEntero = parseInt(precio_max, 10);
+ 
+         console.log("precio_min:", precioMinEntero);
+         console.log("precio_max:", precioMaxEntero);*/
 
-        if (precio_maxTrim) {
+        if (precio_max) {
             query += ` AND precio <= $${values.length + 1}`;
-            values.push(precio_maxTrim);
+            values.push(precio_max);
         }
 
-        if (precio_minTrim) {
+        if (precio_min) {
             query += ` AND precio >= $${values.length + 1}`;
-            values.push(precio_minTrim);
+            values.push(precio_min);
         }
 
         if (categoria) {
-            const categoriaLower= categoria.toLowerCase().trim();
+            const categoriaLower = categoria.toLowerCase().trim();
             query += ` AND categoria LIKE '%' || $${values.length + 1} || '%'`;
             values.push(categoriaLower);
         }
@@ -122,59 +168,60 @@ app.get('/joyas/filtros', reportMiddleware, async (req, res) => {
 
         console.log(query);
         console.log(values);
-        const result = await client.query(query, values);
+        const result = await pool.query(query, values);
         const joyas = result.rows;
         res.json(joyas);
-        client.release();
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error al obtener las joyas' });
     }
 });
 
-app.put('/joyas/:id', async (req, res) => {
-    const id = req.params.id;
-    const { likes } = req.body;
-    const client = await pool.connect();
+app.put('/joyas/edit/:id', reportMiddleBody, async (req, res) => {
+    const { id } = req.params;
+    console.log("id :",id);
+    const { nombre, categoria, metal, precio, stock, img } = req.body;
     try {
-        const result = await client.query('UPDATE inventario SET likes = $1 WHERE id = $2 RETURNING *', [likes, id]);
-        const updatedPost = result.rows[0];
-        res.json(updatedPost);
+        const query = 'UPDATE inventario SET nombre = $1, categoria = $2, metal = $3, precio = $4, stock = $5, img = $6 WHERE id = $7 RETURNING *';
+        const values = [nombre, categoria, metal, precio, stock, img, id];
+
+        const result = await pool.query(query, values);
+
+        const updatedItem = result.rows[0];
+        res.json(updatedItem);
     } catch (error) {
         console.error('Error executing query', error);
         res.status(500).json({ error: 'Internal Server Error' });
-    } finally {
-        client.release();
     }
 });
 
 // Ruta para insertar un nuevo post
-app.post('/joyas', async (req, res) => {
+app.post('/joyas', reportMiddleBody, async (req, res) => {
     const { nombre, categoria, metal, precio, stock, img } = req.body;
-    const likes = 0;
+
     try {
-        const client = await pool.connect();
-        const result = await client.query(
+
+        const result = await pool.query(
             'INSERT INTO inventario (nombre, categoria, metal, precio, stock, img) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
             [nombre, categoria, metal, precio, stock, img]
         );
         const postId = result.rows[0].id;
         console.log(result.rows[0]);
         res.json({ id: postId, nombre, categoria, metal, precio, stock, img });
-        client.release();
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Error al insertar el post' });
     }
 });
 
-app.delete('/joyas/:id', async (req, res) => {
+app.delete('/joyas/:id', reportMiddleParams, async (req, res) => {
     const { id } = req.params;
 
     try {
-        const client = await pool.connect();
-        await client.query('DELETE FROM inventario WHERE id = $1', [id]);
-        client.release();
+        await pool.query('DELETE FROM inventario WHERE id = $1', [id]);
+        console.log("Joya Borrada de id: ", id);
         res.sendStatus(204);
     } catch (err) {
         console.error(err);
